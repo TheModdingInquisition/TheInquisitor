@@ -12,8 +12,9 @@ logback = "1.2.11"
 github-api = "1.306"
 jdbi = "3.28.0"
 jasypt = "1.9.3"
-bot-commands = "0f11e6d61fdf3c305da445c2cd6fab6d940b21bb"
 gson = "2.9.0"
+chewtils = "2.0-SNAPSHOT"
+nightconfig = "3.6.5"
 
 [libraries]
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
@@ -26,5 +27,6 @@ github-api = { module = "org.kohsuke:github-api", version.ref = "github-api" }
 jdbi-core = { module = "org.jdbi:jdbi3-core", version.ref = "jdbi" }
 jdbi-sqlobject = { module = "org.jdbi:jdbi3-sqlobject", version.ref = "jdbi" }
 jasypt = { module = "org.jasypt:jasypt", version.ref = "jasypt" }
-bot-commands = { module = "com.github.freya022:BotCommands", version.ref = "bot-commands" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+chewtils = { module = "pw.chew:jda-chewtils", version.ref = "chewtils" }
+nightconfig = { module = "com.electronwill.night-config:toml", version.ref = "nightconfig" }

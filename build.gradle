@@ -29,8 +29,7 @@ configurations {
 repositories {
   mavenCentral()
   maven {
-    name 'jitpack'
-    url 'https://jitpack.io'
+    url "https://m2.chew.pro/snapshots"
   }
 }
 
@@ -42,8 +41,9 @@ dependencies {
   shade libs.logback
   shade libs.github.api
   shade libs.jasypt
-  shade libs.bot.commands
   shade libs.gson
+  shade libs.chewtils
+  shade libs.nightconfig
 
   shade libs.jdbi.core
   shade libs.jdbi.sqlobject

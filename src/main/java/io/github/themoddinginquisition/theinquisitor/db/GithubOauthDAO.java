@@ -5,6 +5,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.transaction.Transactional;
+import org.jetbrains.annotations.Nullable;
 
 public interface GithubOauthDAO extends Transactional<GithubOauthDAO> {
 
@@ -27,8 +28,9 @@ public interface GithubOauthDAO extends Transactional<GithubOauthDAO> {
     @SqlQuery("select token from github_oauth where discord_id = :user")
     String getTokenPlain(@Bind("user") long userId);
 
+    @Nullable
     default String getToken(long userId) {
         final var encrypted = getTokenPlain(userId);
-        return TheInquisitor.getInstance().getEncryptor().decrypt(encrypted);
+        return encrypted == null ? null : TheInquisitor.getInstance().getEncryptor().decrypt(encrypted);
     }
 }
