@@ -1,0 +1,32 @@
+plugins {
+  id 'application'
+  id 'maven-publish'
+  id 'eclipse'
+  id 'idea'
+  id 'checkstyle'
+  id 'java'
+  alias(libs.plugins.shadow)
+  alias(libs.plugins.flyway)
+}
+
+group = 'io.github.themoddinginquisition.theinquisitor'
+
+application {
+  mainClassName 'io.github.themoddinginquisition.theinquisitor.TheInquisitor'
+}
+
+configurations {
+  shade
+  implementation.extendsFrom(shade)
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  shade libs.jda
+  shade libs.flyway
+  shade libs.sqlite
+  shade libs.dotenv
+}
