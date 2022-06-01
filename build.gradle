@@ -1,9 +1,15 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+
 plugins {
   id 'application'
   id 'maven-publish'
   id 'eclipse'
   id 'idea'
-  id 'checkstyle'
+  // id 'checkstyle'
   id 'java'
   alias(libs.plugins.shadow)
   alias(libs.plugins.flyway)
@@ -22,6 +28,10 @@ configurations {
 
 repositories {
   mavenCentral()
+  maven {
+    name 'jitpack'
+    url 'https://jitpack.io'
+  }
 }
 
 dependencies {
@@ -29,4 +39,41 @@ dependencies {
   shade libs.flyway
   shade libs.sqlite
   shade libs.dotenv
+  shade libs.logback
+  shade libs.github.api
+  shade libs.jasypt
+  shade libs.bot.commands
+  shade libs.gson
+
+  shade libs.jdbi.core
+  shade libs.jdbi.sqlobject
+
+  compileOnly libs.annotations
+}
+
+tasks.named('shadowJar', ShadowJar).configure {
+  configurations = [project.configurations.shade]
+  manifest.attributes(makeManifestAttributes(application.getMainClass().get()))
+  classifier 'all'
+  group 'build'
+  description 'Builds the whole project with its dependencies.'
+}
+
+def makeManifestAttributes(String mainClass) {
+  final var actualDateTime = OffsetDateTime.now(ZoneOffset.UTC).withNano(0)
+  final var currentDateTime = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(actualDateTime)
+  return [
+          'Maven-Artifact'          : "${project.group}:${archivesBaseName}:${project.version}",
+          'Timestamp'               : currentDateTime,
+          'Specification-Title'     : archivesBaseName,
+          'Specification-Vendor'    : 'TheModdingInquisition',
+          'Specification-Version'   : '1',
+          'Implementation-Title'    : archivesBaseName,
+          'Implementation-Version'  : "${project.version}",
+          'Implementation-Vendor'   : 'TheModdingInquisition',
+          'Implementation-Timestamp': currentDateTime,
+          'Built-On-Java'           : "${System.getProperty('java.vm.version')} (${System.getProperty('java.vm.vendor')})",
+          'Built-On-JDA'            : "${project.libs.versions.jda.get()}",
+          'Main-Class'              : mainClass
+  ]
 }

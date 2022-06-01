@@ -7,9 +7,24 @@ jda = "5.0.0-alpha.12"
 flyway = "8.5.10"
 sqlite = "3.36.0.3"
 dotenv = "2.2.3"
+annotations = "23.0.0"
+logback = "1.2.11"
+github-api = "1.306"
+jdbi = "3.28.0"
+jasypt = "1.9.3"
+bot-commands = "0f11e6d61fdf3c305da445c2cd6fab6d940b21bb"
+gson = "2.9.0"
 
 [libraries]
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
 sqlite = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
 flyway = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
-dotenv = {module = "io.github.cdimascio:dotenv-java", version.ref = "dotenv"}
+dotenv = { module = "io.github.cdimascio:dotenv-java", version.ref = "dotenv" }
+annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
+logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+github-api = { module = "org.kohsuke:github-api", version.ref = "github-api" }
+jdbi-core = { module = "org.jdbi:jdbi3-core", version.ref = "jdbi" }
+jdbi-sqlobject = { module = "org.jdbi:jdbi3-sqlobject", version.ref = "jdbi" }
+jasypt = { module = "org.jasypt:jasypt", version.ref = "jasypt" }
+bot-commands = { module = "com.github.freya022:BotCommands", version.ref = "bot-commands" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
