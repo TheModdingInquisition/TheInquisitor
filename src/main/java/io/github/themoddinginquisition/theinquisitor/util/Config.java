@@ -6,4 +6,5 @@ public class Config {
     public String janitorsTeam = "ModdedJanitors";
 
     public long channel = 0L;
+    public long updateCheckInterval = 5;
 }

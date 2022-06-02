@@ -1,0 +1,17 @@
+<configuration>
+    <!--Log levels include ERROR, WARN, INFO, DEBUG, TRACE -->
+
+    <appender name="CONSOLE"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <encoder
+                class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>
+                %d %green([%thread]) %highlight(%level) %logger{50}/%marker - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+    <!--Log levels include ERROR, WARN, INFO, DEBUG, TRACE -->
+    <root level="DEBUG">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

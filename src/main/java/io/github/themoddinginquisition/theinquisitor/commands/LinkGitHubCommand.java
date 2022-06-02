@@ -6,12 +6,16 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.JsonObject;
 import com.jagrosh.jdautilities.command.SlashCommand;
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
+import com.matyrobbrt.jdahelper.components.Component;
+import com.matyrobbrt.jdahelper.components.ComponentListener;
+import com.matyrobbrt.jdahelper.components.context.ButtonInteractionContext;
 import io.github.themoddinginquisition.theinquisitor.TheInquisitor;
 import io.github.themoddinginquisition.theinquisitor.db.GithubOauthDAO;
 import io.github.themoddinginquisition.theinquisitor.util.Constants;
 import io.github.themoddinginquisition.theinquisitor.util.request.ParameterBuilder;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.utils.TimeFormat;
 import org.kohsuke.github.GitHubBuilder;
 
@@ -21,16 +25,20 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Objects;
 
 public class LinkGitHubCommand extends BaseSlashCommand {
+
+    private static final ComponentListener COMPONENT_LISTENER = TheInquisitor.getComponentListener("github-link")
+            .onButtonInteraction(LinkGitHubCommand::buttonInteraction)
+            .build();
 
     private static final Cache<Long, String> USER_2_CODE_MAP = Caffeine
             .newBuilder()
             .expireAfterAccess(Duration.of(15, ChronoUnit.MINUTES))
             .build();
 
-    private static final String VERIFY_BUTTON = "link_verify";
     private static final String CREATE_CODE_ENDPOINT = "https://github.com/login/device/code";
     private static final String VERIFY_CODE_ENDPOINT = "https://github.com/login/oauth/access_token";
     private static final String GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
@@ -66,18 +74,18 @@ public class LinkGitHubCommand extends BaseSlashCommand {
                         The code expires %s"""
                         .formatted(url, userCode, TimeFormat.RELATIVE.format(Instant.now().plus(expirationInterval, ChronoUnit.SECONDS))))
                 .mentionRepliedUser(true)
-                .addActionRow(Button.success(VERIFY_BUTTON, "Verify"))
+                .addActionRow(COMPONENT_LISTENER.createButton(ButtonStyle.SUCCESS, Component.Lifespan.TEMPORARY, List.of(event.getUser().getId()))
+                        .label("Verify")
+                        .build()
+                )
                 .queue();
     }
 
-    public static void buttonInteraction(final ButtonInteractionEvent event) {
-        if (!Objects.equals(VERIFY_BUTTON, event.getButton().getId()))
-            return;
-
-        final var ownerId = requireNonNull(event.getMessage().getInteraction()).getUser().getIdLong();
+    public static void buttonInteraction(final ButtonInteractionContext context) {
+        final var ownerId = context.getArgument(0, () -> 0L, Long::parseLong);
         final var code = USER_2_CODE_MAP.getIfPresent(ownerId);
         if (code == null) {
-            event.deferReply(true).setContent("The code has expired!")
+            context.deferReply(true).setContent("The code has expired!")
                     .queue();
             return;
         }
@@ -99,10 +107,10 @@ public class LinkGitHubCommand extends BaseSlashCommand {
             if (res.has("error")) {
                 final var error = res.get("error").getAsString();
                 if (error.equals("authorization_pending")) {
-                    event.deferReply(true).setContent("You haven't authorized the application!")
+                    context.deferReply(true).setContent("You haven't authorized the application!")
                             .queue();
                 } else {
-                    event.deferReply(true).setContent("There was an error validating your authorization: " + error)
+                    context.deferReply(true).setContent("There was an error validating your authorization: " + error)
                             .queue();
                     TheInquisitor.LOGGER.warn("Error trying to valid authorization for user {}: {} / {}: {}", ownerId, error, res.get("error_description"),
                             res.get("error_uri"));
@@ -115,13 +123,13 @@ public class LinkGitHubCommand extends BaseSlashCommand {
                     .withJwtToken(token)
                     .build();
 
-            event.deferReply(true)
+            context.getEvent().deferReply(true)
                     .setContent("Successfully authenticated as `" + gh.getMyself().getName() + "`")
                     .queue();
 
             TheInquisitor.getInstance().jdbi().useExtension(GithubOauthDAO.class, dao -> dao.insertEncrypted(ownerId, token));
         } catch (Exception e) {
-            event.deferReply(true).setContent("There was an error handling that interaction: " + e).queue();
+            context.getEvent().deferReply(true).setContent("There was an error handling that interaction: " + e).queue();
             TheInquisitor.LOGGER.error("Exception trying to verify user authentication: ", e);
         }
     }

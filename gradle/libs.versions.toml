@@ -15,6 +15,7 @@ jasypt = "1.9.3"
 gson = "2.9.0"
 chewtils = "2.0-SNAPSHOT"
 nightconfig = "3.6.5"
+jdahelper = "1.1.0"
 
 [libraries]
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
@@ -30,3 +31,4 @@ jasypt = { module = "org.jasypt:jasypt", version.ref = "jasypt" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 chewtils = { module = "pw.chew:jda-chewtils", version.ref = "chewtils" }
 nightconfig = { module = "com.electronwill.night-config:toml", version.ref = "nightconfig" }
+jdahelper = { module = "com.matyrobbrt:jdahelper", version.ref = "jdahelper" }

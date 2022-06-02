@@ -13,7 +13,7 @@ public interface GithubOauthDAO extends Transactional<GithubOauthDAO> {
      * @deprecated Use the method that inserts an encrypted version of the token.
      */
     @Deprecated
-    @SqlUpdate("insert into github_oauth values (:user, :token)")
+    @SqlUpdate("insert or replace into github_oauth values (:user, :token)")
     void insertPlain(@Bind("user") long userId, @Bind("token") String token);
 
     default void insertEncrypted(long userId, String token) {

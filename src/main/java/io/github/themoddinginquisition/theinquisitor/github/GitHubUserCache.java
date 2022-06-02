@@ -1,9 +1,10 @@
-package io.github.themoddinginquisition.theinquisitor.util;
+package io.github.themoddinginquisition.theinquisitor.github;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.themoddinginquisition.theinquisitor.TheInquisitor;
 import io.github.themoddinginquisition.theinquisitor.db.GithubOauthDAO;
+import io.github.themoddinginquisition.theinquisitor.util.Config;
 import org.jdbi.v3.core.Jdbi;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.github.GHOrganization;

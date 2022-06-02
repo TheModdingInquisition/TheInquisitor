@@ -2,25 +2,28 @@ package io.github.themoddinginquisition.theinquisitor;
 
 import com.electronwill.nightconfig.core.file.FileWatcher;
 import com.jagrosh.jdautilities.command.CommandClientBuilder;
+import com.matyrobbrt.jdahelper.DismissListener;
+import com.matyrobbrt.jdahelper.components.ComponentListener;
+import com.matyrobbrt.jdahelper.components.ComponentManager;
+import com.matyrobbrt.jdahelper.components.storage.ComponentStorage;
 import io.github.cdimascio.dotenv.Dotenv;
 import io.github.themoddinginquisition.theinquisitor.commands.ForkCommand;
 import io.github.themoddinginquisition.theinquisitor.commands.LinkGitHubCommand;
 import io.github.themoddinginquisition.theinquisitor.commands.pr.ManagedPRs;
 import io.github.themoddinginquisition.theinquisitor.commands.pr.PRCommand;
+import io.github.themoddinginquisition.theinquisitor.github.GitHubUserCache;
 import io.github.themoddinginquisition.theinquisitor.util.Config;
 import io.github.themoddinginquisition.theinquisitor.util.Constants;
+import io.github.themoddinginquisition.theinquisitor.util.DeferredComponentListenerRegistry;
 import io.github.themoddinginquisition.theinquisitor.util.DotenvLoader;
-import io.github.themoddinginquisition.theinquisitor.util.GitHubUserCache;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.events.Event;
-import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.hooks.EventListener;
 import net.dv8tion.jda.api.utils.AllowedMentions;
 import org.flywaydb.core.Flyway;
 import org.jasypt.util.text.AES256TextEncryptor;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.kohsuke.github.GHAccessor;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
 import org.slf4j.Logger;
@@ -30,7 +33,8 @@ import org.sqlite.SQLiteDataSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.function.Consumer;
+import java.util.Calendar;
+import java.util.Date;
 
 public class TheInquisitor {
 
@@ -42,6 +46,11 @@ public class TheInquisitor {
 
     public static void main(String[] args) throws Exception {
         instance = new TheInquisitor(args.length < 1 ? Path.of("") : Path.of(args[0]));
+    }
+
+    private static final DeferredComponentListenerRegistry LISTENER_REGISTRY = new DeferredComponentListenerRegistry();
+    public static ComponentListener.Builder getComponentListener(String featureId) {
+        return LISTENER_REGISTRY.createListener(featureId);
     }
 
     public static TheInquisitor getInstance() {
@@ -56,6 +65,7 @@ public class TheInquisitor {
     private final AES256TextEncryptor encryptor;
     private Config config;
     private final GitHubUserCache gitHubUserCache;
+    private final ComponentManager componentManager;
 
     private TheInquisitor(Path rootPath) throws Exception {
         this.rootPath = rootPath;
@@ -125,6 +135,12 @@ public class TheInquisitor {
                     .installPlugin(new SqlObjectPlugin());
         }
 
+        // Components
+        {
+            final var storage = ComponentStorage.sql(jdbi, "components");
+            this.componentManager = LISTENER_REGISTRY.createManager(storage);
+        }
+
         final var managedPRs = new ManagedPRs(github, jdbi, this::getJDA, config.channel);
 
         final var commandClient = new CommandClientBuilder()
@@ -137,8 +153,7 @@ public class TheInquisitor {
 
         this.jda = JDABuilder.createLight(dotenv.get("discord_token"))
                 .addEventListeners(
-                        consumerEvent(ButtonInteractionEvent.class, LinkGitHubCommand::buttonInteraction),
-                        commandClient
+                        /* commandClient */ componentManager, new DismissListener()
                 )
                 .build()
                 .awaitReady();
@@ -148,6 +163,15 @@ public class TheInquisitor {
         this.gitHubUserCache = new GitHubUserCache(github, jdbi, this::getConfig);
 
         Runtime.getRuntime().addShutdownHook(new Thread(jda::shutdownNow, "ShutdownHook"));
+
+        // GHAccessor.subscribe(github, 3713854353L);
+        GHAccessor.listNotifications(github, false, false).forEach(th -> {
+            try {
+                th.markAsRead();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public JDA getJDA() {
@@ -178,11 +202,8 @@ public class TheInquisitor {
         return github;
     }
 
-    private static <T extends Event> EventListener consumerEvent(Class<T> eventClass, Consumer<T> consumer) {
-        return event -> {
-            if (eventClass.isInstance(event))
-                consumer.accept(eventClass.cast(event));
-        };
+    public ComponentManager getComponentManager() {
+        return componentManager;
     }
 
 }
