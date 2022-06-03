@@ -6,15 +6,15 @@ create table github_oauth
 
 create table pull_requests
 (
-    repo         text not null,
-    number       unsigned big int not null,
-    thread       unsigned big int not null,
-    last_comment unsigned big int,
-    labels       text,
-    title        text,
-    description  text,
-    state        text,
-    last_commit  text,
+    repo        text not null,
+    number      unsigned big int not null,
+    thread      unsigned big int not null,
+    comments    int,
+    labels      text,
+    title       text,
+    description text,
+    state       text,
+    commits     int,
     constraint pk_prs primary key (repo, number)
 );
 

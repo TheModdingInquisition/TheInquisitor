@@ -23,7 +23,6 @@ import org.flywaydb.core.Flyway;
 import org.jasypt.util.text.AES256TextEncryptor;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-import org.kohsuke.github.GHAccessor;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
 import org.slf4j.Logger;
@@ -33,8 +32,8 @@ import org.sqlite.SQLiteDataSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Calendar;
-import java.util.Date;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class TheInquisitor {
 
@@ -153,7 +152,7 @@ public class TheInquisitor {
 
         this.jda = JDABuilder.createLight(dotenv.get("discord_token"))
                 .addEventListeners(
-                        /* commandClient */ componentManager, new DismissListener()
+                        commandClient, componentManager, new DismissListener()
                 )
                 .build()
                 .awaitReady();
@@ -164,14 +163,13 @@ public class TheInquisitor {
 
         Runtime.getRuntime().addShutdownHook(new Thread(jda::shutdownNow, "ShutdownHook"));
 
-        // GHAccessor.subscribe(github, 3713854353L);
-        GHAccessor.listNotifications(github, false, false).forEach(th -> {
+        Executors.newScheduledThreadPool(1).schedule(() -> {
             try {
-                th.markAsRead();
-            } catch (IOException e) {
+                managedPRs.run();
+            } catch (Throwable e) {
                 e.printStackTrace();
             }
-        });
+        }, 30, TimeUnit.SECONDS);
     }
 
     public JDA getJDA() {
