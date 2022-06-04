@@ -5,5 +5,11 @@ import java.util.UUID;
 
 public interface WebhookEventHandler<T> {
 
-    void handleEvent(UUID deliveryID, T event) throws IOException;
+    void handleEvent(UUID deliveryID, Context context, T event) throws IOException;
+
+    interface Context {
+        void respond(int statusCode, String message) throws IOException;
+
+        void setHandled(boolean handled);
+    }
 }

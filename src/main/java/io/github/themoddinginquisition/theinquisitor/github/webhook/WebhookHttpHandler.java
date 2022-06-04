@@ -1,11 +1,15 @@
 package io.github.themoddinginquisition.theinquisitor.github.webhook;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import io.github.themoddinginquisition.theinquisitor.github.webhook.event.WebhookEventType;
 import io.github.themoddinginquisition.theinquisitor.github.webhook.handler.WebhookEventHandler;
 import io.github.themoddinginquisition.theinquisitor.util.io.CallbackInputStream;
 import io.github.themoddinginquisition.theinquisitor.util.io.MacInputStream;
+import io.github.themoddinginquisition.theinquisitor.util.io.RequestMethodFilter;
+import io.github.themoddinginquisition.theinquisitor.util.io.RequiredHeadersFilter;
 import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.collections4.multimap.HashSetValuedHashMap;
 import org.jdbi.v3.core.extension.ExtensionConsumer;
@@ -21,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 public class WebhookHttpHandler implements HttpHandler {
@@ -39,6 +44,14 @@ public class WebhookHttpHandler implements HttpHandler {
 
     public WebhookHttpHandler() {
         this(null, false);
+    }
+
+    @CanIgnoreReturnValue
+    public WebhookHttpHandler bind(HttpContext context) {
+        context.getFilters().add(new RequestMethodFilter("POST"));
+        context.getFilters().add(new RequiredHeadersFilter(GITHUB_EVENT_HEADER, GITHUB_DELIVERY_GUID_HEADER));
+        context.setHandler(this);
+        return this;
     }
 
     public <T> WebhookHttpHandler addHandler(WebhookEventType<T> type, WebhookEventHandler<T> handler) {
@@ -99,20 +112,36 @@ public class WebhookHttpHandler implements HttpHandler {
             }
             return;
         }
-        try (final var is = exchange.getRequestBody()) {
+        try (final var is = exchange.getRequestBody(); final var os = exchange.getResponseBody();) {
             final var payload = GitHub.getMappingObjectReader().readValue(is, eventType.getEventClass());
             if (is.available() > 0) {
                 System.err.println("Bytes remaining after reading event payload: " + is.available());
                 is.transferTo(OutputStream.nullOutputStream());
             }
-            for (final var handler : handlers)
-                doHandle(deliveryID, handler, payload);
+            final AtomicBoolean isHandled = new AtomicBoolean();
+            final WebhookEventHandler.Context output = new WebhookEventHandler.Context() {
+                @Override
+                public void respond(int statusCode, String message) throws IOException {
+                    exchange.sendResponseHeaders(statusCode, message.length());
+                    os.write(message.getBytes(StandardCharsets.UTF_8));
+                }
+
+                @Override
+                public void setHandled(boolean handled) {
+                    isHandled.set(true);
+                }
+            };
+            for (final var handler : handlers) {
+                doHandle(deliveryID, handler, output, payload);
+                if (isHandled.get())
+                    break;
+            }
         }
     }
 
     @SuppressWarnings("unchecked")
-    private <T> void doHandle(UUID deliveryID, WebhookEventHandler<T> handler, Object payload) throws IOException {
-        handler.handleEvent(deliveryID, (T) payload);
+    private <T> void doHandle(UUID deliveryID, WebhookEventHandler<T> handler, WebhookEventHandler.Context output, Object payload) throws IOException {
+        handler.handleEvent(deliveryID, output, (T) payload);
     }
 
     private static final String HMAC_SHA256 = "HmacSHA256";
@@ -161,4 +190,5 @@ public class WebhookHttpHandler implements HttpHandler {
     public static <E extends Throwable> void sneakyThrow(Throwable ex) throws E {
         throw (E) ex;
     }
+
 }

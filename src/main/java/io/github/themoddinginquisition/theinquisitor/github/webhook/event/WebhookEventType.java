@@ -7,10 +7,11 @@ import com.google.common.collect.HashBiMap;
 public final class WebhookEventType<T> {
 
     private static final BiMap<String, WebhookEventType<?>> REGISTRY = HashBiMap.create();
-
     public static WebhookEventType<?> getEventType(String name) {
         return REGISTRY.get(name);
     }
+
+    public static final WebhookEventType<PingEvent> PING = new WebhookEventType<>("ping", PingEvent.class);
 
     private final String name;
     private final Class<T> clazz;

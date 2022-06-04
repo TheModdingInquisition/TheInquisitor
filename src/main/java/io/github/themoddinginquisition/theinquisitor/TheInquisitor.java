@@ -6,16 +6,22 @@ import com.matyrobbrt.jdahelper.DismissListener;
 import com.matyrobbrt.jdahelper.components.ComponentListener;
 import com.matyrobbrt.jdahelper.components.ComponentManager;
 import com.matyrobbrt.jdahelper.components.storage.ComponentStorage;
+import com.sun.net.httpserver.HttpServer;
 import io.github.cdimascio.dotenv.Dotenv;
 import io.github.themoddinginquisition.theinquisitor.commands.ForkCommand;
 import io.github.themoddinginquisition.theinquisitor.commands.LinkGitHubCommand;
 import io.github.themoddinginquisition.theinquisitor.commands.pr.ManagedPRs;
 import io.github.themoddinginquisition.theinquisitor.commands.pr.PRCommand;
 import io.github.themoddinginquisition.theinquisitor.github.GitHubUserCache;
+import io.github.themoddinginquisition.theinquisitor.github.webhook.WebhookHttpHandler;
+import io.github.themoddinginquisition.theinquisitor.github.webhook.event.WebhookEventType;
+import io.github.themoddinginquisition.theinquisitor.github.webhook.handler.PingHandler;
 import io.github.themoddinginquisition.theinquisitor.util.Config;
 import io.github.themoddinginquisition.theinquisitor.util.Constants;
 import io.github.themoddinginquisition.theinquisitor.util.DeferredComponentListenerRegistry;
 import io.github.themoddinginquisition.theinquisitor.util.DotenvLoader;
+import io.github.themoddinginquisition.theinquisitor.util.io.RequestMethodFilter;
+import io.github.themoddinginquisition.theinquisitor.util.io.RequiredHeadersFilter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.utils.AllowedMentions;
@@ -30,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import org.sqlite.SQLiteDataSource;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.temporal.ChronoUnit;
@@ -66,6 +73,7 @@ public class TheInquisitor {
     private Config config;
     private final GitHubUserCache gitHubUserCache;
     private final ComponentManager componentManager;
+    private final ManagedPRs managedPRs;
 
     private TheInquisitor(Path rootPath) throws Exception {
         this.rootPath = rootPath;
@@ -141,7 +149,7 @@ public class TheInquisitor {
             this.componentManager = LISTENER_REGISTRY.createManager(storage);
         }
 
-        final var managedPRs = new ManagedPRs(github, jdbi, this::getJDA, config.channel);
+        managedPRs = new ManagedPRs(github, jdbi, this::getJDA, config.channel);
 
         final var commandClient = new CommandClientBuilder()
                 .setOwnerId(0L)
@@ -178,6 +186,19 @@ public class TheInquisitor {
             }
         }, 1,30, TimeUnit.SECONDS); // TODO: config for checking period
         pool.scheduleAtFixedRate(() -> componentManager.removeComponentsOlderThan(30, ChronoUnit.MINUTES), 1, 30, TimeUnit.MINUTES);
+
+        {
+            // Setup the endpoint
+            final var server = HttpServer.create(new InetSocketAddress(12), 0);
+            server.setExecutor(Executors.newSingleThreadExecutor(r -> new Thread(r, "WebhookEndpoint")));
+
+            final var webhookContext = server.createContext("/webhooks");
+            final var webhookHandler = new WebhookHttpHandler()
+                    .addHandler(WebhookEventType.PING, new PingHandler());
+            webhookHandler.bind(webhookContext);
+
+            server.start();
+        }
     }
 
     public JDA getJDA() {
@@ -212,4 +233,7 @@ public class TheInquisitor {
         return componentManager;
     }
 
+    public ManagedPRs getManagedPRs() {
+        return managedPRs;
+    }
 }
