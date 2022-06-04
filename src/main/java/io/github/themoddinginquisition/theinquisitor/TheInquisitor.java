@@ -32,6 +32,7 @@ import org.sqlite.SQLiteDataSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -163,13 +164,20 @@ public class TheInquisitor {
 
         Runtime.getRuntime().addShutdownHook(new Thread(jda::shutdownNow, "ShutdownHook"));
 
-        Executors.newScheduledThreadPool(1).schedule(() -> {
+        final var pool = Executors.newScheduledThreadPool(2, r -> {
+            final var thread = new Thread(r, "ScheduledAction");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        pool.scheduleAtFixedRate(() -> {
             try {
                 managedPRs.run();
             } catch (Throwable e) {
-                e.printStackTrace();
+                LOGGER.error("Exception trying to check for PR updates: ", e);
             }
-        }, 30, TimeUnit.SECONDS);
+        }, 1,30, TimeUnit.SECONDS); // TODO: config for checking period
+        pool.scheduleAtFixedRate(() -> componentManager.removeComponentsOlderThan(30, ChronoUnit.MINUTES), 1, 30, TimeUnit.MINUTES);
     }
 
     public JDA getJDA() {

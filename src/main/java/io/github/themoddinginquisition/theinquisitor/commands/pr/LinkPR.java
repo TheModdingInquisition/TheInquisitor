@@ -1,6 +1,7 @@
 package io.github.themoddinginquisition.theinquisitor.commands.pr;
 
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
+import com.matyrobbrt.jdahelper.DismissListener;
 import io.github.themoddinginquisition.theinquisitor.commands.BaseSlashCommand;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -20,8 +21,8 @@ class LinkPR extends BaseSlashCommand {
         help = "Links a PR to Discord";
         janitorOnly = true;
         options = List.of(
-            new OptionData(OptionType.STRING, "repo", "The repository of the PR"),
-            new OptionData(OptionType.INTEGER, "id", "The PR id")
+            new OptionData(OptionType.STRING, "repo", "The repository of the PR", true),
+            new OptionData(OptionType.INTEGER, "id", "The PR id", true)
         );
     }
 
@@ -31,6 +32,7 @@ class LinkPR extends BaseSlashCommand {
         final var id = event.getOption("id", 0, OptionMapping::getAsInt);
         event.deferReply().queue();
         manager.get().manage(repo, id, thread -> event.getHook().sendMessage("Linked PR with thread " + thread.getAsMention())
+                .addActionRow(DismissListener.createDismissButton(event))
                 .queue());
     }
 }

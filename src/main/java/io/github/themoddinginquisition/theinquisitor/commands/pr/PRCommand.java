@@ -10,12 +10,14 @@ public class PRCommand extends BaseSlashCommand {
         name = "pr";
         help = "PR related commands.";
         children = new SlashCommand[] {
-            new LinkPR(() -> managedPRs)
+            new LinkPR(() -> managedPRs),
+            new UnlinkPR(() -> managedPRs),
+            new CreatePR(() -> managedPRs)
         };
     }
 
     @Override
-    protected void exec(SlashCommandEvent event) throws Throwable {
+    protected void exec(SlashCommandEvent event) {
 
     }
 }

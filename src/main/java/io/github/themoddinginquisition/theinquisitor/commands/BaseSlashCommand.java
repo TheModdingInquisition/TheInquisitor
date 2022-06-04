@@ -3,8 +3,11 @@ package io.github.themoddinginquisition.theinquisitor.commands;
 import com.jagrosh.jdautilities.command.SlashCommand;
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import io.github.themoddinginquisition.theinquisitor.TheInquisitor;
+import org.kohsuke.github.GHOrganization;
+import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GitHub;
 
+import java.io.IOException;
 import java.util.regex.Pattern;
 
 public abstract class BaseSlashCommand extends SlashCommand {
@@ -38,6 +41,13 @@ public abstract class BaseSlashCommand extends SlashCommand {
                     .setContent("You need to be a Janitor in order to execute that command. If you are one, make sure you `/link` your GitHub and Discord accounts.")
                     .queue();
         return isJanitor;
+    }
+
+    protected GHOrganization getOrganization() throws IOException {
+        return getGithub().getOrganization(TheInquisitor.getInstance().getConfig().organization);
+    }
+    protected GHTeam getJanitorsTeam() throws IOException {
+        return getOrganization().getTeamByName(TheInquisitor.getInstance().getConfig().janitorsTeam);
     }
 
     public static final Pattern REPO_PATTERN = Pattern.compile("github\\.com/(?<owner>.+)/(?<repo>.+)");

@@ -93,7 +93,7 @@ public interface PullRequestsDAO extends Transactional<PullRequestsDAO> {
         public static PRState getState(GHPullRequest request) {
             if (convert(GHAccessor.PR_IS_MERGED.get(request)))
                 return PRState.MERGED;
-            else if (GHAccessor.isPRDraft(request))
+            else if (GHAccessor.isPRDraft(request) && request.getState() == GHIssueState.OPEN)
                 return PRState.DRAFT;
             else if (request.getState() == GHIssueState.CLOSED)
                 return PRState.CLOSED;
