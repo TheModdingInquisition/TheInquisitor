@@ -15,7 +15,7 @@ jasypt = "1.9.3"
 gson = "2.9.0"
 chewtils = "2.0-SNAPSHOT"
 nightconfig = "3.6.5"
-jdahelper = "1.1.0"
+jdahelper = "1.1.1"
 guava = "31.1-jre"
 
 [libraries]

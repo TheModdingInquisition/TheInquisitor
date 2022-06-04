@@ -24,10 +24,11 @@ public abstract class BaseSlashCommand extends SlashCommand {
             final var cont = "There was an exception executing that command: " + t.getLocalizedMessage();
             if (event.isAcknowledged()) {
                 event.getHook().sendMessage(cont).queue();
+            } else {
+                event.deferReply(true)
+                        .setContent(cont)
+                        .queue();
             }
-            event.deferReply(true)
-                .setContent(cont)
-                .queue();
             TheInquisitor.LOGGER.error("There was an exception executing the \"{}\" command: ", getName(), t);
         }
     }

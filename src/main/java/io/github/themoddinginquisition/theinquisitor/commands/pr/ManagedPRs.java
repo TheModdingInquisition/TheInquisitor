@@ -9,6 +9,7 @@ import com.matyrobbrt.jdahelper.components.context.ModalInteractionContext;
 import io.github.themoddinginquisition.theinquisitor.TheInquisitor;
 import io.github.themoddinginquisition.theinquisitor.db.PullRequestsDAO;
 import io.github.themoddinginquisition.theinquisitor.util.ThrowingRunnable;
+import io.github.themoddinginquisition.theinquisitor.util.Utils;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.MessageBuilder;
@@ -86,7 +87,6 @@ public class ManagedPRs implements ThrowingRunnable {
     public void manage(String repoName, int number, Consumer<ThreadChannel> channelConsumer) throws IOException {
         final var repo = gitHub.getRepository(repoName);
         final var pr = repo.getPullRequest(number);
-        GHAccessor.subscribe(gitHub, pr.getId());
         final var channel = jda.get().getTextChannelById(this.channel);
         if (channel == null)
             throw new NullPointerException("Unknown text channel with ID: " + this.channel);
@@ -95,7 +95,7 @@ public class ManagedPRs implements ThrowingRunnable {
         channel.sendMessage(embed.build())
                 .flatMap(msg -> msg.createThreadChannel(repo.getName() + " [" + number + "]"))
                 .queue(th -> {
-                    th.retrieveParentMessage().flatMap(msg -> th.pinMessageById(th.getIdLong())).queue();
+                    th.retrieveParentMessage().flatMap(msg -> th.pinMessageById(msg.getIdLong())).queue();
                     prs.add(new ManagedPR(repoName, number, th.getIdLong()));
                     channelConsumer.accept(th);
                     jdbi.useExtension(PullRequestsDAO.class, db -> db.update(PullRequestsDAO.PRData.from(pr, th.getIdLong())));
@@ -118,8 +118,8 @@ public class ManagedPRs implements ThrowingRunnable {
         final var emoji = getPRStatusEmoji(PullRequestsDAO.PRState.getState(pr));
         final var emojiMention = emoji == null ? "" : emoji.getAsMention() + " ";
         final var embed = new EmbedBuilder()
-                .setAuthor(pr.getUser().getName(), pr.getUser().getUrl().toString(), pr.getUser().getAvatarUrl())
-                .setTitle(limit(pr.getTitle(), MessageEmbed.TITLE_MAX_LENGTH), pr.getUrl().toString())
+                .setAuthor(pr.getUser().getName(), pr.getUser().getHtmlUrl().toString(), pr.getUser().getAvatarUrl())
+                .setTitle(limit(pr.getTitle(), MessageEmbed.TITLE_MAX_LENGTH), pr.getHtmlUrl().toString())
                 .setDescription(limit(emojiMention + pr.getBody(), MessageEmbed.DESCRIPTION_MAX_LENGTH))
                 .setTimestamp(pr.getUpdatedAt().toInstant())
                 .setColor(getPRColour(pr))
@@ -150,8 +150,8 @@ public class ManagedPRs implements ThrowingRunnable {
         final var sender = comment.getUser();
         final var issue = comment.getParent();
         return new EmbedBuilder()
-                .setAuthor(sender.getName(), sender.getUrl().toString(), sender.getAvatarUrl())
-                .setTitle("New comment on %s #".formatted(issue.isPullRequest() ? "pull request" : "issue") + issue.getNumber(), comment.getUrl().toString())
+                .setAuthor(sender.getName(), sender.getHtmlUrl().toString(), sender.getAvatarUrl())
+                .setTitle("New comment on %s #".formatted(issue.isPullRequest() ? "pull request" : "issue") + issue.getNumber(), comment.getHtmlUrl().toString())
                 .setColor(Color.ORANGE)
                 .setDescription(limit(comment.getBody(), MessageEmbed.DESCRIPTION_MAX_LENGTH))
                 .setTimestamp(comment.getCreatedAt().toInstant())
@@ -186,15 +186,15 @@ public class ManagedPRs implements ThrowingRunnable {
                 final var description = commits.stream()
                         .map(detail -> "[`%s`](%s) %s - %s".formatted(
                                 detail.getSHA1().substring(0, 7),
-                                detail.getUrl().toString(),
+                                detail.getHtmlUrl().toString(),
                                 limit(getMessage(detail), 50),
                                 name
                         ))
                         .reduce("", (a, b) -> a + "\n" + b);
                 final var lastCommit = commitsList.get(commitsList.size() - 1);
                 embeds.add(new EmbedBuilder()
-                        .setAuthor(user.getName(), user.getUrl().toString(), user.getAvatarUrl())
-                        .setTitle("[" + pr.getRepository().getName() + "] " + commits.size() + " new commit" + (commits.size() > 1 ? "s" : ""), lastCommit.getUrl().toString())
+                        .setAuthor(user.getName(), user.getHtmlUrl().toString(), user.getAvatarUrl())
+                        .setTitle("[" + pr.getRepository().getName() + "] " + commits.size() + " new commit" + (commits.size() > 1 ? "s" : ""), lastCommit.getHtmlUrl().toString())
                         .setDescription(limit(description, MessageEmbed.DESCRIPTION_MAX_LENGTH))
                         .setColor(Color.PINK)
                         .setTimestamp(lastCommit.getCommitDate().toInstant())
@@ -215,7 +215,7 @@ public class ManagedPRs implements ThrowingRunnable {
 
     public static MessageEmbed makeStateChangeEmbed(GHPullRequest pr, PullRequestsDAO.PRState oldState, PullRequestsDAO.PRState newState) throws IOException {
         return new EmbedBuilder()
-                .setTitle("PR State Change", pr.getUrl().toString())
+                .setTitle("PR State Change", pr.getHtmlUrl().toString())
                 .setDescription("""
                         `%s` -> `%s`
                         %s -> %s""".formatted(
@@ -229,7 +229,7 @@ public class ManagedPRs implements ThrowingRunnable {
 
     public static MessageEmbed makeLabelsDiffEmbed(GHPullRequest pr, Stream<GHLabel> added, Stream<GHLabel> removed) {
         final var embed = new EmbedBuilder()
-                .setTitle("Labels Updated", pr.getUrl().toString())
+                .setTitle("Labels Updated", pr.getHtmlUrl().toString())
                 .setColor(Color.LIGHT_GRAY);
         final var addedCombined = String.join(", ", added.map(l -> "`" + l.getName() + "`").toList());
         final var removedCombined = String.join(", ", removed.map(l -> "`" + l.getName() + "`").toList());
@@ -453,14 +453,17 @@ public class ManagedPRs implements ThrowingRunnable {
             case "edit_description" -> {
                 final var pr = gitHub.getRepository(context.getArguments().get(0))
                         .getPullRequest(context.getArgument(1, () -> 0, Integer::parseInt));
-                final var newText = Objects.requireNonNull(context.getEvent().getValue("description")).getAsString();
+                final var newText = Utils.getText(Objects.requireNonNull(context.getEvent().getValue("description")).getAsString())
+                        + "\n\n*Sponsored by [The Modding Inquisition](https://github.com/TheModdingInquisition)*";
                 pr.setBody(newText);
+                context.deferReply(true).setContent("Successfully updated PR description!").queue();
             }
             case "edit_title" -> {
                 final var pr = gitHub.getRepository(context.getArguments().get(0))
                         .getPullRequest(context.getArgument(1, () -> 0, Integer::parseInt));
                 final var newLabel = Objects.requireNonNull(context.getEvent().getValue("label")).getAsString();
                 pr.setTitle(newLabel);
+                context.deferReply(true).setContent("Successfully updated PR title!").queue();
             }
         }
     }
