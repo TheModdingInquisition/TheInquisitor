@@ -6,13 +6,11 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import io.github.themoddinginquisition.theinquisitor.github.webhook.event.WebhookEventType;
 import io.github.themoddinginquisition.theinquisitor.github.webhook.handler.WebhookEventHandler;
-import io.github.themoddinginquisition.theinquisitor.util.io.CallbackInputStream;
 import io.github.themoddinginquisition.theinquisitor.util.io.MacInputStream;
 import io.github.themoddinginquisition.theinquisitor.util.io.RequestMethodFilter;
 import io.github.themoddinginquisition.theinquisitor.util.io.RequiredHeadersFilter;
 import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.collections4.multimap.HashSetValuedHashMap;
-import org.jdbi.v3.core.extension.ExtensionConsumer;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.github.GitHub;
 
@@ -26,7 +24,6 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 public class WebhookHttpHandler implements HttpHandler {
     public static final String GITHUB_DELIVERY_GUID_HEADER = "X-GitHub-Delivery";
@@ -34,16 +31,14 @@ public class WebhookHttpHandler implements HttpHandler {
     public static final String GITHUB_SIGNATURE_HEADER = "X-Hub-Signature-256";
 
     private final byte @Nullable [] secretToken;
-    private final boolean errorOnSignatureMismatch;
     private final MultiValuedMap<WebhookEventType<?>, WebhookEventHandler<?>> eventHandlers = new HashSetValuedHashMap<>();
 
-    public WebhookHttpHandler(byte @Nullable [] secretToken, boolean errorOnSignatureMismatch) {
+    public WebhookHttpHandler(byte @Nullable [] secretToken) {
         this.secretToken = secretToken;
-        this.errorOnSignatureMismatch = errorOnSignatureMismatch;
     }
 
     public WebhookHttpHandler() {
-        this(null, false);
+        this(null);
     }
 
     @CanIgnoreReturnValue
@@ -71,7 +66,14 @@ public class WebhookHttpHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        validateSignatures(exchange);
+        if (!validateSignatures(exchange)) {
+            try (final var os = exchange.getResponseBody()) {
+                final String message = "Request signature is not present, or invalid!\n";
+                exchange.sendResponseHeaders(HttpURLConnection.HTTP_FORBIDDEN, message.length());
+                os.write(message.getBytes(StandardCharsets.UTF_8));
+            }
+            return;
+        }
 
         final @Nullable String event = exchange.getRequestHeaders().getFirst(GITHUB_EVENT_HEADER);
         if (event == null) {
@@ -136,6 +138,9 @@ public class WebhookHttpHandler implements HttpHandler {
                 if (isHandled.get())
                     break;
             }
+            if (!isHandled.get()) {
+                output.respond(HttpURLConnection.HTTP_ACCEPTED, "Note: the event was not handled, but it was accepted\n");
+            }
         }
     }
 
@@ -146,7 +151,7 @@ public class WebhookHttpHandler implements HttpHandler {
 
     private static final String HMAC_SHA256 = "HmacSHA256";
 
-    private void validateSignatures(HttpExchange exchange) throws IOException {
+    private boolean validateSignatures(HttpExchange exchange) throws IOException {
         if (secretToken != null) { // Validate signatures
             Mac mac;
             try {
@@ -159,36 +164,14 @@ public class WebhookHttpHandler implements HttpHandler {
             }
 
             final String ghSignature = exchange.getRequestHeaders().getFirst(GITHUB_SIGNATURE_HEADER);
-            exchange.setStreams(
-                    new CallbackInputStream<>(new MacInputStream(mac, exchange.getRequestBody()),
-                            rethrow((MacInputStream in) -> compareSignatures(in, ghSignature))),
-                    exchange.getResponseBody());
+            return compareSignatures(new MacInputStream(mac, exchange.getRequestBody()), ghSignature);
         }
+        return true;
     }
 
-    private static <T> Consumer<T> rethrow(ExtensionConsumer<T, Exception> cons) {
-        return obj -> {
-            try {
-                cons.useExtension(obj);
-            } catch (Exception e) {
-                sneakyThrow(e);
-            }
-        };
-    }
-
-    private void compareSignatures(MacInputStream inputStream, String expected) throws IOException {
+    private boolean compareSignatures(MacInputStream inputStream, String expected) throws IOException {
         String actual = "sha256=" + MacInputStream.bytesToHex(inputStream.getMac().doFinal());
-        if (!actual.equals(expected)) {
-            System.err.printf("Signatures do not match: expected '%s', actual '%s'%n", expected, actual);
-            if (errorOnSignatureMismatch) {
-                throw new IOException("Signatures do not match: expected '" + expected + "', actual '" + actual + "'");
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public static <E extends Throwable> void sneakyThrow(Throwable ex) throws E {
-        throw (E) ex;
+        return actual.equals(expected);
     }
 
 }

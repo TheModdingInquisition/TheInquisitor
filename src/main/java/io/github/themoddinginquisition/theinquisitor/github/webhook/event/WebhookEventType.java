@@ -12,6 +12,7 @@ public final class WebhookEventType<T> {
     }
 
     public static final WebhookEventType<PingEvent> PING = new WebhookEventType<>("ping", PingEvent.class);
+    public static final WebhookEventType<PushEvent> PUSH = new WebhookEventType<>("push", PushEvent.class);
 
     private final String name;
     private final Class<T> clazz;

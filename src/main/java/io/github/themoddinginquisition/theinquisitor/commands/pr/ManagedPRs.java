@@ -10,6 +10,7 @@ import io.github.themoddinginquisition.theinquisitor.TheInquisitor;
 import io.github.themoddinginquisition.theinquisitor.db.PullRequestsDAO;
 import io.github.themoddinginquisition.theinquisitor.util.ThrowingRunnable;
 import io.github.themoddinginquisition.theinquisitor.util.Utils;
+import io.github.themoddinginquisition.theinquisitor.util.wrap.WrappedList;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.MessageBuilder;
@@ -26,7 +27,6 @@ import org.apache.commons.lang3.time.StopWatch;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.extension.ExtensionCallback;
 import org.jetbrains.annotations.Nullable;
-import org.kohsuke.github.GHAccessor;
 import org.kohsuke.github.GHCommit;
 import org.kohsuke.github.GHIssueComment;
 import org.kohsuke.github.GHLabel;
@@ -39,8 +39,10 @@ import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,6 +54,8 @@ import java.util.stream.Stream;
 
 public class ManagedPRs implements ThrowingRunnable {
 
+    public static final Map<String, Long> BRANCH_TO_THREAD = new HashMap<>();
+
     record ManagedPR(String repo, int number, long threadId) {
     }
 
@@ -59,7 +63,21 @@ public class ManagedPRs implements ThrowingRunnable {
     private final Supplier<JDA> jda;
     private final Jdbi jdbi;
     private final long channel;
-    private final List<ManagedPR> prs = Collections.synchronizedList(new ArrayList<>());
+    private final List<ManagedPR> prs = new WrappedList<>(Collections.synchronizedList(new ArrayList<>())) {
+        @Override
+        public boolean add(ManagedPR managedPR) {
+            final var res = super.add(managedPR);
+            if (res) {
+                try {
+                    final GHPullRequest pr = gitHub.getRepository(managedPR.repo()).getPullRequest(managedPR.number());
+                    final var ref = pr.getHead().getRef();
+                    final var branch = ref.substring("refs/heads/".length());
+                    BRANCH_TO_THREAD.put((managedPR.repo() + "/" + branch).toLowerCase(Locale.ROOT), managedPR.threadId());
+                } catch (IOException ignored) {}
+            }
+            return res;
+        }
+    };
     final ComponentListener components;
 
     public ManagedPRs(GitHub gitHub, Jdbi jdbi, Supplier<JDA> jda, long channel) {
@@ -240,7 +258,7 @@ public class ManagedPRs implements ThrowingRunnable {
         return embed.build();
     }
 
-    private static String limit(String str, int limit) {
+    public static String limit(String str, int limit) {
         if (str == null)
             return "";
         return str.length() > limit ? str.substring(0, limit - 3) + "..." : str;
