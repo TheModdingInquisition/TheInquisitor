@@ -80,7 +80,7 @@ public class TheInquisitor {
         this.rootPath = rootPath;
 
         this.dotenv = DotenvLoader.builder()
-                .filePath(rootPath.resolve(".env"))
+                .filePath(Path.of(".env"))
                 .whenCreated(writer -> writer
                         .writeComment("The bot's Discord token")
                         .writeValue("discord_token", "")
@@ -98,7 +98,7 @@ public class TheInquisitor {
                 )
                 .load();
 
-        final var cfgPath = rootPath.resolve("config.json");
+        final var cfgPath = Path.of("config.json");
 
         if (!Files.exists(cfgPath)) {
             Files.writeString(cfgPath, Constants.GSON.toJson(new Config()));
@@ -124,7 +124,7 @@ public class TheInquisitor {
 
         // Setup database
         {
-            final var dbPath = rootPath.resolve("data.db");
+            final var dbPath = Path.of("data.db");
             if (!Files.exists(dbPath)) {
                 try {
                     Files.createFile(dbPath);
@@ -198,7 +198,7 @@ public class TheInquisitor {
 
         {
             // Setup the endpoint
-            final var server = HttpServer.create(new InetSocketAddress(12), 0);
+            final var server = HttpServer.create(new InetSocketAddress(1963), 0);
             server.setExecutor(Executors.newSingleThreadExecutor(r -> new Thread(r, "WebhookEndpoint")));
 
             final var webhookContext = server.createContext("/webhooks");
