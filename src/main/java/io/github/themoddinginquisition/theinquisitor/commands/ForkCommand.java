@@ -10,6 +10,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.apache.commons.io.IOUtils;
+import org.kohsuke.github.GHIssue;
 import org.kohsuke.github.GHOrganization;
 
 import java.io.IOException;
@@ -59,7 +60,8 @@ public class ForkCommand extends BaseSlashCommand {
             janitorOnly = true;
             options = List.of(
                     new OptionData(OptionType.STRING, "repo", "The name of the fork to link. E.g: Vampirism", true),
-                    new OptionData(OptionType.STRING, "mod", "The CurseForge slug of the mod to link the fork to.", true)
+                    new OptionData(OptionType.STRING, "mod", "The CurseForge slug of the mod to link the fork to", true),
+                    new OptionData(OptionType.INTEGER, "issue", "The number of an already existing issue on the archives repo")
             );
         }
 
@@ -78,11 +80,16 @@ public class ForkCommand extends BaseSlashCommand {
             }
             final var mod = modsResponse.get().get(0);
             final var archivesRepo = getArchivesRepo();
-            final var issue = archivesRepo.createIssue(mod.name())
-                    .assignee(getLinkedAccount(event.getUser().getIdLong()))
-                    .label("in-progress")
-                    .body(getIssueBody(parent.getHtmlUrl().toString(), mod.links().websiteUrl()))
-                    .create();
+            final GHIssue issue;
+            if (event.hasOption("issue")) {
+                issue = archivesRepo.getIssue(event.getOption("issue", 0, OptionMapping::getAsInt));
+            } else {
+                issue = archivesRepo.createIssue(mod.name())
+                        .assignee(getLinkedAccount(event.getUser().getIdLong()))
+                        .label("in-progress")
+                        .body(getIssueBody(parent.getHtmlUrl().toString(), mod.links().websiteUrl()))
+                        .create();
+            }
             TheInquisitor.getInstance().jdbi().useExtension(ModsDAO.class, db -> db.insert(repo, mod.id(), issue.getNumber()));
             event.getHook()
                     .sendMessage("Linked [%s](%s) to issue %s.".formatted(mod.name(), mod.links().websiteUrl(), issue.getHtmlUrl()))
