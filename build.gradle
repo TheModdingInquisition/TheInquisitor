@@ -46,6 +46,7 @@ dependencies {
   shade libs.nightconfig
   shade libs.jdahelper
   shade libs.guava
+  shade libs.cfapi
 
   shade libs.jdbi.core
   shade libs.jdbi.sqlobject

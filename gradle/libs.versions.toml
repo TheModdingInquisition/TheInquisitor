@@ -17,6 +17,7 @@ chewtils = "2.0-SNAPSHOT"
 nightconfig = "3.6.5"
 jdahelper = "1.1.1"
 guava = "31.1-jre"
+cfapi = "1.7.3"
 
 [libraries]
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
@@ -34,3 +35,4 @@ chewtils = { module = "pw.chew:jda-chewtils", version.ref = "chewtils" }
 nightconfig = { module = "com.electronwill.night-config:toml", version.ref = "nightconfig" }
 jdahelper = { module = "com.matyrobbrt:jdahelper", version.ref = "jdahelper" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+cfapi = { module = "io.github.matyrobbrt:curseforgeapi", version.ref = "cfapi" }

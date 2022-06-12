@@ -27,3 +27,10 @@ create table components
     last_used timestamp not null,
     constraint pk_components primary key (feature, id)
 );
+
+create table mods
+(
+    fork       text not null,
+    project_id int  not null primary key,
+    issue      int  not null
+);

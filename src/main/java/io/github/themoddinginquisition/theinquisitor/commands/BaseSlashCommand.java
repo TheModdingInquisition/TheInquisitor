@@ -3,8 +3,12 @@ package io.github.themoddinginquisition.theinquisitor.commands;
 import com.jagrosh.jdautilities.command.SlashCommand;
 import com.jagrosh.jdautilities.command.SlashCommandEvent;
 import io.github.themoddinginquisition.theinquisitor.TheInquisitor;
+import io.github.themoddinginquisition.theinquisitor.util.Config;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.github.GHOrganization;
+import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
+import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
 
 import java.io.IOException;
@@ -33,7 +37,9 @@ public abstract class BaseSlashCommand extends SlashCommand {
         }
     }
 
-    protected abstract void exec(SlashCommandEvent event) throws Throwable;
+    protected void exec(SlashCommandEvent event) throws Throwable {
+
+    }
 
     protected boolean isJanitor(SlashCommandEvent event) {
         final var isJanitor = TheInquisitor.getInstance().getGitHubUserCache().isJanitor(event.getUser().getIdLong());
@@ -50,6 +56,11 @@ public abstract class BaseSlashCommand extends SlashCommand {
     protected GHTeam getJanitorsTeam() throws IOException {
         return getOrganization().getTeamByName(TheInquisitor.getInstance().getConfig().janitorsTeam);
     }
+    @Nullable
+    protected GHUser getLinkedAccount(long userId) {
+        final var user = TheInquisitor.getInstance().getGitHubUserCache().getUser(userId);
+        return user == null ? null : user.user();
+    }
 
     public static final Pattern REPO_PATTERN = Pattern.compile("github\\.com/(?<owner>.+)/(?<repo>.+)");
 
@@ -63,5 +74,13 @@ public abstract class BaseSlashCommand extends SlashCommand {
 
     protected GitHub getGithub() {
         return TheInquisitor.getInstance().getGithub();
+    }
+
+    protected GHRepository getArchivesRepo() throws IOException {
+        return getGithub().getRepository(TheInquisitor.getInstance().getConfig().archivesRepo);
+    }
+
+    protected Config getConfig() {
+        return TheInquisitor.getInstance().getConfig();
     }
 }

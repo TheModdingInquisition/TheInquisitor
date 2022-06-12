@@ -8,6 +8,7 @@ import com.matyrobbrt.jdahelper.components.ComponentManager;
 import com.matyrobbrt.jdahelper.components.storage.ComponentStorage;
 import com.sun.net.httpserver.HttpServer;
 import io.github.cdimascio.dotenv.Dotenv;
+import io.github.matyrobbrt.curseforgeapi.CurseForgeAPI;
 import io.github.themoddinginquisition.theinquisitor.commands.ForkCommand;
 import io.github.themoddinginquisition.theinquisitor.commands.LinkGitHubCommand;
 import io.github.themoddinginquisition.theinquisitor.commands.pr.ManagedPRs;
@@ -16,12 +17,11 @@ import io.github.themoddinginquisition.theinquisitor.github.GitHubUserCache;
 import io.github.themoddinginquisition.theinquisitor.github.webhook.WebhookHttpHandler;
 import io.github.themoddinginquisition.theinquisitor.github.webhook.event.WebhookEventType;
 import io.github.themoddinginquisition.theinquisitor.github.webhook.handler.PingHandler;
+import io.github.themoddinginquisition.theinquisitor.github.webhook.handler.PushHandler;
 import io.github.themoddinginquisition.theinquisitor.util.Config;
 import io.github.themoddinginquisition.theinquisitor.util.Constants;
 import io.github.themoddinginquisition.theinquisitor.util.DeferredComponentListenerRegistry;
 import io.github.themoddinginquisition.theinquisitor.util.DotenvLoader;
-import io.github.themoddinginquisition.theinquisitor.util.io.RequestMethodFilter;
-import io.github.themoddinginquisition.theinquisitor.util.io.RequiredHeadersFilter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.utils.AllowedMentions;
@@ -74,6 +74,7 @@ public class TheInquisitor {
     private final GitHubUserCache gitHubUserCache;
     private final ComponentManager componentManager;
     private final ManagedPRs managedPRs;
+    private final CurseForgeAPI curseForgeAPI;
 
     private TheInquisitor(Path rootPath) throws Exception {
         this.rootPath = rootPath;
@@ -91,6 +92,9 @@ public class TheInquisitor {
 
                         .writeComment("The encryption password used for encrypting GitHub Oauth tokens")
                         .writeValue("encryption_password", "dummy")
+
+                        .writeComment("The CurseForge API key")
+                        .writeValue("cfapi_key", "")
                 )
                 .load();
 
@@ -151,17 +155,18 @@ public class TheInquisitor {
 
         managedPRs = new ManagedPRs(github, jdbi, this::getJDA, config.channel);
 
-        final var commandClient = new CommandClientBuilder()
+        final var clientBuilder = new CommandClientBuilder()
                 .setOwnerId(0L)
                 .addSlashCommands(
                         new LinkGitHubCommand(), new ForkCommand(), new PRCommand(managedPRs)
-                )
-                .forceGuildOnly(853270691176906802L)
-                .build();
+                );
+
+        if (config.forceCommandsGuildOnly)
+            clientBuilder.forceGuildOnly(config.guildId);
 
         this.jda = JDABuilder.createLight(dotenv.get("discord_token"))
                 .addEventListeners(
-                        commandClient, componentManager, new DismissListener()
+                        clientBuilder.build(), componentManager, new DismissListener()
                 )
                 .build()
                 .awaitReady();
@@ -184,8 +189,12 @@ public class TheInquisitor {
             } catch (Throwable e) {
                 LOGGER.error("Exception trying to check for PR updates: ", e);
             }
-        }, 1,30, TimeUnit.SECONDS); // TODO: config for checking period
+        }, 1,config.updateCheckInterval, TimeUnit.MINUTES);
         pool.scheduleAtFixedRate(() -> componentManager.removeComponentsOlderThan(30, ChronoUnit.MINUTES), 1, 30, TimeUnit.MINUTES);
+
+        this.curseForgeAPI = CurseForgeAPI.builder()
+                .apiKey(dotenv.get("cfapi_key"))
+                .build();
 
         {
             // Setup the endpoint
@@ -194,7 +203,8 @@ public class TheInquisitor {
 
             final var webhookContext = server.createContext("/webhooks");
             final var webhookHandler = new WebhookHttpHandler()
-                    .addHandler(WebhookEventType.PING, new PingHandler());
+                    .addHandler(WebhookEventType.PING, new PingHandler())
+                    .addHandler(WebhookEventType.PUSH, new PushHandler());
             webhookHandler.bind(webhookContext);
 
             server.start();
@@ -235,5 +245,9 @@ public class TheInquisitor {
 
     public ManagedPRs getManagedPRs() {
         return managedPRs;
+    }
+
+    public CurseForgeAPI getCurseForgeAPI() {
+        return curseForgeAPI;
     }
 }
