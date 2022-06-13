@@ -10,4 +10,5 @@ public class Config {
 
     public long channel = 0L;
     public long updateCheckInterval = 10;
+    public int webhookPort = 1963;
 }

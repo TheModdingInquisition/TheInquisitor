@@ -80,7 +80,6 @@ public class TheInquisitor {
         this.rootPath = rootPath;
 
         this.dotenv = DotenvLoader.builder()
-                .filePath(Path.of(".env"))
                 .whenCreated(writer -> writer
                         .writeComment("The bot's Discord token")
                         .writeValue("discord_token", "")
@@ -198,7 +197,7 @@ public class TheInquisitor {
 
         {
             // Setup the endpoint
-            final var server = HttpServer.create(new InetSocketAddress(1963), 0);
+            final var server = HttpServer.create(new InetSocketAddress(config.webhookPort), 0);
             server.setExecutor(Executors.newSingleThreadExecutor(r -> new Thread(r, "WebhookEndpoint")));
 
             final var webhookContext = server.createContext("/webhooks");

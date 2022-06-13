@@ -18,7 +18,6 @@ public class DotenvLoader {
         return new DotenvLoader();
     }
 
-    private Path filePath = Path.of(".env");
     private boolean systemProperties = false;
     private boolean throwIfMalformed = true;
     private Consumer<DotenvWriter> whenCreated;
@@ -31,17 +30,6 @@ public class DotenvLoader {
      */
     public DotenvLoader whenCreated(Consumer<DotenvWriter> whenCreated) {
         this.whenCreated = whenCreated;
-        return this;
-    }
-
-    /**
-     * Sets the path of the .env
-     *
-     * @param filePath the path of the .env file
-     * @return this {@link DotenvLoader}
-     */
-    public DotenvLoader filePath(Path filePath) {
-        this.filePath = filePath;
         return this;
     }
 
@@ -72,6 +60,7 @@ public class DotenvLoader {
      * @throws DotenvException when an error occurs
      */
     public Dotenv load() throws DotenvException, IOException {
+        final var filePath = Path.of(".env");
         if (!Files.exists(filePath)) {
             if (filePath.getParent() != null) {
                 Files.createDirectories(filePath.getParent());
@@ -98,9 +87,7 @@ public class DotenvLoader {
             }
         }
 
-        final var builder = new DotenvBuilder()
-                .directory(filePath.getParent() == null ? "" : filePath.getParent().toString())
-                .filename(filePath.getFileName().toString());
+        final var builder = new DotenvBuilder();
         if (!throwIfMalformed) {
             builder.ignoreIfMalformed();
         }
