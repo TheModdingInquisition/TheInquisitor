@@ -25,6 +25,8 @@ import io.github.themoddinginquisition.theinquisitor.util.DotenvLoader;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.utils.AllowedMentions;
+import okhttp3.Dispatcher;
+import okhttp3.OkHttpClient;
 import org.flywaydb.core.Flyway;
 import org.jasypt.util.text.AES256TextEncryptor;
 import org.jdbi.v3.core.Jdbi;
@@ -167,6 +169,22 @@ public class TheInquisitor {
                 .addEventListeners(
                         clientBuilder.build(), componentManager, new DismissListener()
                 )
+                .setEventPool(Executors.newFixedThreadPool(2, r -> {
+                    final var thread = new Thread(r, "Event Pool");
+                    thread.setDaemon(true);
+                    return thread;
+                }), true)
+                .setRateLimitPool(Executors.newScheduledThreadPool(2, r -> {
+                    final var thread = new Thread(r, "RateLimit Thread");
+                    thread.setDaemon(true);
+                    return thread;
+                }), true)
+                .setHttpClientBuilder(new OkHttpClient.Builder()
+                        .dispatcher(new Dispatcher(Executors.newSingleThreadScheduledExecutor(r -> {
+                            final var thread = new Thread(r, "HttpDispatcher");
+                            thread.setDaemon(true);
+                            return thread;
+                        }))))
                 .build()
                 .awaitReady();
 
